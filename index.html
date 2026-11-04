@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sipariş ve Mutfak Takip Sistemi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+        .logo-font {
+            font-family: 'Pacifico', cursive;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- 0. İŞLETME GİRİŞ & KAYIT EKRANI (SEKMELİ) -->
+    <div id="isletmeGirisEkran" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full border text-center">
+            <h1 class="text-4xl font-bold logo-font text-indigo-600 mb-2">posGarson</h1>
+            <p class="text-gray-500 text-sm mb-6">İşletme Yönetim ve Sipariş Portalı</p>
+            
+            <!-- Sekme Butonları -->
+            <div class="flex bg-gray-100 p-1 rounded-2xl mb-6">
+                <button type="button" id="tabGirisBtn" onclick="isletmeSekmeDegistir('giris')" class="flex-1 py-2.5 rounded-xl font-bold text-sm bg-white shadow text-indigo-600 transition">Giriş Yap</button>
+                <button type="button" id="tabKayitBtn" onclick="isletmeSekmeDegistir('kayit')" class="flex-1 py-2.5 rounded-xl font-bold text-sm text-gray-500 transition">Yeni Kayıt Ol</button>
+            </div>
+
+            <!-- GİRİŞ YAP FORMU -->
+            <form id="formIsletmeGiris" onsubmit="isletmeGirisYap(event)" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">İşletme Kodu</label>
+                    <input type="text" id="girisIsletmeKodu" placeholder="Örn: KEBAPCIBRAHIM" required class="w-full border rounded-xl p-3 text-sm outline-none uppercase font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">İşletme Şifresi</label>
+                    <input type="password" id="girisIsletmeSifre" placeholder="••••••••" required class="w-full border rounded-xl p-3 text-sm outline-none">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white p-3.5 rounded-2xl font-bold shadow-lg transition mt-2">İşletmeye Giriş Yap 🔑</button>
+            </form>
+
+            <!-- KAYIT OL FORMU -->
+            <form id="formIsletmeKayit" onsubmit="isletmeKayitOl(event)" class="space-y-4 text-left hidden">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Yeni İşletme Kodu Oluştur</label>
+                    <input type="text" id="kayitIsletmeKodu" placeholder="Örn: LEZZETDURAGI" required class="w-full border rounded-xl p-3 text-sm outline-none uppercase font-semibold">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">İşletme Şifresi Belirle</label>
+                    <input type="password" id="kayitIsletmeSifre" placeholder="••••••••" required class="w-full border rounded-xl p-3 text-sm outline-none">
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-3.5 rounded-2xl font-bold shadow-lg transition mt-2">İşletmeyi Kaydet 🚀</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 1. ROL / PANEL SEÇİMİ -->
+    <div id="rolSecimEkran" class="min-h-screen flex items-center justify-center p-4 hidden">
+        <div class="bg-white p-8 rounded-3xl shadow-xl max-w-lg w-full border text-center relative">
+            <button type="button" onclick="isletmeDegistir()" class="absolute top-4 left-4 text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1.5 rounded-lg text-gray-700 font-semibold">🔄 İşletme Değiştir</button>
+            
+            <h1 class="text-4xl font-bold logo-font text-indigo-600 mb-1 mt-2">posGarson</h1>
+            <p id="aktifIsletmeYazisi" class="text-xs font-bold text-indigo-600 mb-6 bg-indigo-50 py-1 rounded-full inline-block px-3"></p>
+
+            <div class="space-y-4">
+                <button type="button" onclick="panelAc('admin')" class="w-full bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg transition">
+                    <span class="text-lg">⚙️ Admin / Yönetim Paneli</span>
+                    <span class="text-xs bg-purple-800 px-3 py-1 rounded-full">Menü & Garson Yönet</span>
+                </button>
+
+                <button type="button" onclick="panelAc('mutfak')" class="w-full bg-amber-500 hover:bg-amber-600 text-white p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg transition">
+                    <span class="text-lg">👨‍🍳 Mutfak / Tezgah Ekranı</span>
+                    <span class="text-xs bg-amber-700 px-3 py-1 rounded-full">Canlı Sipariş Takibi</span>
+                </button>
+
+                <button type="button" onclick="panelAc('garson')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-4 rounded-2xl font-bold flex items-center justify-between shadow-lg transition">
+                    <span class="text-lg">🤵 Garson Giriş Paneli</span>
+                    <span class="text-xs bg-emerald-800 px-3 py-1 rounded-full">Şifreli Garson Girişi</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GARSON GİRİŞ MODALI -->
+    <div id="garsonGirisModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl text-center">
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Garson Girişi</h3>
+            <p class="text-xs text-gray-500 mb-4">Lütfen adminin sizin için tanımladığı bilgileri girin</p>
+            
+            <form onsubmit="garsonGirisYap(event)" class="space-y-3 text-left">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Kullanıcı Adı</label>
+                    <input type="text" id="garsonKulAdi" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Şifre</label>
+                    <input type="password" id="garsonSifre" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="document.getElementById('garsonGirisModal').classList.add('hidden')" class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold">İptal</button>
+                    <button type="submit" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-xl text-sm font-bold shadow hover:bg-emerald-700">Giriş Yap</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. ANA PANEL -->
+    <div id="appContainer" class="hidden min-h-screen flex flex-col">
+        <header class="bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold logo-font">posGarson</h1>
+                <span id="aktifRolEtiket" class="text-xs bg-indigo-800 px-3 py-1 rounded-full text-indigo-100 font-semibold"></span>
+            </div>
+            <button type="button" onclick="anaEkranaDon()" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow">Panelden Çık</button>
+        </header>
+
+        <!-- A) ADMİN PANELİ -->
+        <main id="panelAdmin" class="flex-1 max-w-6xl w-full mx-auto p-4 hidden">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Admin Yönetim Ekranı</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- Ürün & Fiyat Ekleme -->
+                <div class="bg-white p-5 rounded-2xl shadow border">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 border-b pb-2">+ Ürün & Fiyat Ekle</h3>
+                    <form onsubmit="urunEkle(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Ürün Adı</label>
+                            <input type="text" id="inputUrunAd" placeholder="Örn: İskender Kebap" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Fiyat (TL)</label>
+                            <input type="number" step="0.5" id="inputUrunFiyat" placeholder="250.00" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl font-bold text-sm shadow">Ürünü Kaydet</button>
+                    </form>
+                    <h4 class="font-bold text-sm text-gray-700 mt-6 mb-2">Kayıtlı Menü</h4>
+                    <div id="adminUrunListesi" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                </div>
+
+                <!-- Masa / Paket Ekleme -->
+                <div class="bg-white p-5 rounded-2xl shadow border">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 border-b pb-2">+ Masa / Paket Ekle</h3>
+                    <form onsubmit="masaEkle(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Masa/Paket Adı</label>
+                            <input type="text" id="inputMasaAd" placeholder="Örn: Masa 5 veya Paket 3" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Tür</label>
+                            <select id="selectMasaTip" class="w-full border rounded-xl p-2.5 text-sm outline-none bg-white">
+                                <option value="masa">Masa</option>
+                                <option value="paket">Paket Servis</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl font-bold text-sm shadow">Masa Ekle</button>
+                    </form>
+                    <h4 class="font-bold text-sm text-gray-700 mt-6 mb-2">Kayıtlı Masalar</h4>
+                    <div id="adminMasaListesi" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                </div>
+
+                <!-- Garson Tanımlama -->
+                <div class="bg-white p-5 rounded-2xl shadow border">
+                    <h3 class="font-bold text-lg text-gray-800 mb-3 border-b pb-2">+ Garson Hesabı Ekle</h3>
+                    <form onsubmit="garsonEkle(event)" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Garson Adı Soyadı</label>
+                            <input type="text" id="inputGarsonAd" placeholder="Örn: Ahmet Yılmaz" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Kullanıcı Adı</label>
+                            <input type="text" id="inputGarsonKullanici" placeholder="Örn: ahmet123" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Şifre</label>
+                            <input type="password" id="inputGarsonSifre" placeholder="••••••••" required class="w-full border rounded-xl p-2.5 text-sm outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl font-bold text-sm shadow">Garson Kaydet</button>
+                    </form>
+                    <h4 class="font-bold text-sm text-gray-700 mt-6 mb-2">Kayıtlı Garsonlar</h4>
+                    <div id="adminGarsonListesi" class="space-y-2 max-h-48 overflow-y-auto pr-1"></div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- B) MUTFAK / TEZGAH PANELİ -->
+        <main id="panelMutfak" class="flex-1 max-w-6xl w-full mx-auto p-4 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Canlı Mutfak & Tezgah Ekranı</h2>
+                <button type="button" onclick="zilSesiCal()" class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-indigo-200">🔊 Test Zili Çal</button>
+            </div>
+            <div id="mutfakSiparisGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        </main>
+
+        <!-- C) GARSON PANELİ -->
+        <main id="panelGarson" class="flex-1 max-w-6xl w-full mx-auto p-4 hidden">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="garsonHosgeldin" class="text-xl font-bold text-gray-800">Masalar</h2>
+                <span class="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-semibold">Aktif Garson</span>
+            </div>
+            <div id="garsonMasaGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+        </main>
+    </div>
+
+    <!-- SİPARİŞ ALMA MODALI -->
+    <div id="siparisModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center p-4 z-50">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl flex flex-col max-h-[90vh]">
+            <h2 id="modalMasaBaslik" class="text-xl font-bold mb-4 text-gray-800 border-b pb-2">Masa Siparişi</h2>
+            
+            <div id="modalUrunListesi" class="flex-1 overflow-y-auto mb-4 space-y-2"></div>
+
+            <div class="border-t pt-4">
+                <div class="flex justify-between items-center mb-4 font-bold text-lg">
+                    <span>Toplam:</span>
+                    <span id="modalToplamTutar" class="text-indigo-600">0.00 TL</span>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="modalKapat()" class="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-semibold">İptal</button>
+                    <button type="button" onclick="siparisGonder()" class="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold shadow hover:bg-emerald-700">Siparişi Gönder 🚀</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://dugqwkmpccinqyjungoh.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_-oAdgtu1zuBgf_g1OFmf0A_Nz2e1gnF";
+        let db = null;
+
+        if (window.supabase) {
+            db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        let aktifIsletme = localStorage.getItem('pos_isletme_kodu') || '';
+        let aktifGarson = null;
+        let urunler = [];
+        let masalar = [];
+        let garsonlar = [];
+        let aktifSiparisler = [];
+        let aktifMasaId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (aktifIsletme) {
+                document.getElementById('isletmeGirisEkran').classList.add('hidden');
+                document.getElementById('rolSecimEkran').classList.remove('hidden');
+                document.getElementById('aktifIsletmeYazisi').innerText = `İşletme Kodu: ${aktifIsletme}`;
+            }
+        });
+
+        window.isletmeSekmeDegistir = function(sekme) {
+            const gForm = document.getElementById('formIsletmeGiris');
+            const kForm = document.getElementById('formIsletmeKayit');
+            const gBtn = document.getElementById('tabGirisBtn');
+            const kBtn = document.getElementById('tabKayitBtn');
+
+            if (sekme === 'giris') {
+                gForm.classList.remove('hidden');
+                kForm.classList.add('hidden');
+                gBtn.className = "flex-1 py-2.5 rounded-xl font-bold text-sm bg-white shadow text-indigo-600 transition";
+                kBtn.className = "flex-1 py-2.5 rounded-xl font-bold text-sm text-gray-500 transition";
+            } else {
+                kForm.classList.remove('hidden');
+                gForm.classList.add('hidden');
+                kBtn.className = "flex-1 py-2.5 rounded-xl font-bold text-sm bg-white shadow text-emerald-600 transition";
+                gBtn.className = "flex-1 py-2.5 rounded-xl font-bold text-sm text-gray-500 transition";
+            }
+        };
+
+        window.isletmeKayitOl = async function(e) {
+            e.preventDefault();
+            const kod = document.getElementById('kayitIsletmeKodu').value.trim().toUpperCase();
+            const sifre = document.getElementById('kayitIsletmeSifre').value.trim();
+
+            if(!kod || !sifre) return;
+
+            const { data: mevcutData } = await db.from('isletmeler').select('*').eq('isletme_kodu', kod).single();
+            if (mevcutData) {
+                alert('Bu İşletme Kodu zaten kullanımda!');
+                return;
+            }
+
+            const { error } = await db.from('isletmeler').insert([{ isletme_kodu: kod, sifre }]);
+            if (error) {
+                alert('Kayıt oluşturulurken hata oluştu!');
+                return;
+            }
+
+            alert('Kayıt başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz. 🎉');
+            document.getElementById('girisIsletmeKodu').value = kod;
+            isletmeSekmeDegistir('giris');
+        };
+
+        window.isletmeGirisYap = async function(e) {
+            e.preventDefault();
+            const kod = document.getElementById('girisIsletmeKodu').value.trim().toUpperCase();
+            const sifre = document.getElementById('girisIsletmeSifre').value.trim();
+
+            if(!kod || !sifre) return;
+
+            const { data } = await db.from('isletmeler').select('*').eq('isletme_kodu', kod).single();
+            if (!data) {
+                alert('İşletme bulunamadı! Önce kayıt olun.');
+                return;
+            }
+            if (data.sifre !== sifre) {
+                alert('Hatalı şifre!');
+                return;
+            }
+
+            localStorage.setItem('pos_isletme_kodu', kod);
+            aktifIsletme = kod;
+            document.getElementById('isletmeGirisEkran').classList.add('hidden');
+            document.getElementById('rolSecimEkran').classList.remove('hidden');
+            document.getElementById('aktifIsletmeYazisi').innerText = `İşletme Kodu: ${aktifIsletme}`;
+        };
+
+        window.isletmeDegistir = function() {
+            localStorage.removeItem('pos_isletme_kodu');
+            location.reload();
+        };
+
+        window.panelAc = async function(rol) {
+            if (rol === 'garson') {
+                document.getElementById('garsonGirisModal').classList.remove('hidden');
+                return;
+            }
+
+            document.getElementById('rolSecimEkran').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+
+            document.getElementById('panelAdmin').classList.add('hidden');
+            document.getElementById('panelMutfak').classList.add('hidden');
+            document.getElementById('panelGarson').classList.add('hidden');
+
+            const etiket = document.getElementById('aktifRolEtiket');
+            await verileriYukle();
+
+            if (rol === 'admin') {
+                document.getElementById('panelAdmin').classList.remove('hidden');
+                etiket.innerText = `Admin / ${aktifIsletme}`;
+                adminListeleriCiz();
+            } else if (rol === 'mutfak') {
+                document.getElementById('panelMutfak').classList.remove('hidden');
+                etiket.innerText = `Mutfak / ${aktifIsletme}`;
+                mutfakSiparişleriYukle();
+                mutfakCanliDinleyiciBaslat();
+            }
+        };
+
+        window.garsonGirisYap = async function(e) {
+            e.preventDefault();
+            const kadi = document.getElementById('garsonKulAdi').value.trim();
+            const sifre = document.getElementById('garsonSifre').value.trim();
+
+            await verileriYukle();
+            const garson = garsonlar.find(g => g.kullanici_adi === kadi && g.sifre === sifre);
+
+            if (!garson) {
+                alert('Hatalı kullanıcı adı veya şifre!');
+                return;
+            }
+
+            aktifGarson = garson;
+            document.getElementById('garsonGirisModal').classList.add('hidden');
+            document.getElementById('rolSecimEkran').classList.add('hidden');
+            document.getElementById('appContainer').classList.remove('hidden');
+
+            document.getElementById('panelAdmin').classList.add('hidden');
+            document.getElementById('panelMutfak').classList.add('hidden');
+            document.getElementById('panelGarson').classList.remove('hidden');
+
+            document.getElementById('aktifRolEtiket').innerText = `Garson: ${garson.ad_soyad} (${aktifIsletme})`;
+            document.getElementById('garsonHosgeldin').innerText = `Hoşgeldin, ${garson.ad_soyad}`;
+            
+            garsonMasalariCiz();
+            garsonCanliDinleyiciBaslat();
+        };
+
+        window.anaEkranaDon = function() {
+            document.getElementById('appContainer').classList.add('hidden');
+            document.getElementById('rolSecimEkran').classList.remove('hidden');
+            aktifGarson = null;
+        };
+
+        async function verileriYukle() {
+            if(!db || !aktifIsletme) return;
+            const { data: uData } = await db.from('urunler').select('*').eq('isletme_kodu', aktifIsletme);
+            const { data: mData } = await db.from('masalar').select('*').eq('isletme_kodu', aktifIsletme);
+            const { data: gData } = await db.from('garsonlar').select('*').eq('isletme_kodu', aktifIsletme);
+            const { data: sData } = await db.from('siparisler').select('*').eq('isletme_kodu', aktifIsletme).eq('durum', 'yeni');
+
+            if(uData) urunler = uData;
+            if(mData) masalar = mData;
+            if(gData) garsonlar = gData;
+            if(sData) aktifSiparisler = sData;
+        }
+
+        // --- ADMİN İŞLEMLERİ ---
+        window.urunEkle = async function(e) {
+            e.preventDefault();
+            const ad = document.getElementById('inputUrunAd').value.trim();
+            const fiyat = parseFloat(document.getElementById('inputUrunFiyat').value) || 0;
+            if(!ad || fiyat <= 0) return;
+
+            const { data, error } = await db.from('urunler').insert([{ isletme_kodu: aktifIsletme, ad, fiyat }]).select();
+            if(!error) {
+                urunler.push(data[0]);
+                document.getElementById('inputUrunAd').value = '';
+                document.getElementById('inputUrunFiyat').value = '';
+                adminListeleriCiz();
+            }
+        };
+
+        window.masaEkle = async function(e) {
+            e.preventDefault();
+            const ad = document.getElementById('inputMasaAd').value.trim();
+            const tip = document.getElementById('selectMasaTip').value;
+            if(!ad) return;
+
+            const { data, error } = await db.from('masalar').insert([{ isletme_kodu: aktifIsletme, ad, tip, durum: 'bos' }]).select();
+            if(!error) {
+                masalar.push(data[0]);
+                document.getElementById('inputMasaAd').value = '';
+                adminListeleriCiz();
+            }
+        };
+
+        window.garsonEkle = async function(e) {
+            e.preventDefault();
+            const ad_soyad = document.getElementById('inputGarsonAd').value.trim();
+            const kullanici_adi = document.getElementById('inputGarsonKullanici').value.trim();
+            const sifre = document.getElementById('inputGarsonSifre').value.trim();
+            if(!ad_soyad || !kullanici_adi || !sifre) return;
+
+            const { data, error } = await db.from('garsonlar').insert([{ isletme_kodu: aktifIsletme, ad_soyad, kullanici_adi, sifre }]).select();
+            if(!error) {
+                garsonlar.push(data[0]);
+                document.getElementById('inputGarsonAd').value = '';
+                document.getElementById('inputGarsonKullanici').value = '';
+                document.getElementById('inputGarsonSifre').value = '';
+                adminListeleriCiz();
+            } else {
+                alert('Bu kullanıcı adı zaten kayıtlı!');
+            }
+        };
+
+        function adminListeleriCiz() {
+            const uList = document.getElementById('adminUrunListesi');
+            uList.innerHTML = '';
+            urunler.forEach(u => {
+                uList.innerHTML += `<div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg text-sm border"><span>${u.ad} - <b class="text-indigo-600">${u.fiyat} TL</b></span></div>`;
+            });
+
+            const mList = document.getElementById('adminMasaListesi');
+            mList.innerHTML = '';
+            masalar.forEach(m => {
+                mList.innerHTML += `<div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg text-sm border"><span>${m.ad} (${m.tip})</span></div>`;
+            });
+
+            const gList = document.getElementById('adminGarsonListesi');
+            gList.innerHTML = '';
+            garsonlar.forEach(g => {
+                gList.innerHTML += `<div class="flex justify-between items-center p-2 bg-gray-50 rounded-lg text-sm border"><span><b>${g.ad_soyad}</b> (${g.kullanici_adi})</span></div>`;
+            });
+        }
+
+        // --- GARSON SİPARİŞ & MASA KARTI GÖRÜNÜMÜ ---
+        window.garsonMasalariCiz = function() {
+            const grid = document.getElementById('garsonMasaGrid');
+            grid.innerHTML = '';
+
+            masalar.forEach(m => {
+                const siparis = aktifSiparisler.find(s => s.masa_id === m.id && s.durum === 'yeni');
+                
+                let div = document.createElement('div');
+                div.className = "p-5 rounded-2xl shadow flex flex-col items-center justify-between cursor-pointer transition h-40 select-none relative ";
+
+                if (siparis && siparis.hazir) {
+                    div.className += "bg-emerald-600 text-white border-4 border-emerald-300 animate-pulse";
+                    div.innerHTML = `
+                        <div class="text-center">
+                            <span class="text-xl font-bold">${m.ad}</span>
+                            <span class="block text-[11px] bg-emerald-700 px-2 py-0.5 rounded-full mt-1">✨ SİPARİŞ HAZIR!</span>
+                        </div>
+                        <button onclick="event.stopPropagation(); siparisTeslimEt(${siparis.id}, ${m.id})" class="w-full bg-white text-emerald-700 py-2 rounded-xl text-xs font-extrabold shadow hover:bg-gray-100">
+                            Teslim Et / Onayla ✓
+                        </button>
+                    `;
+                } else if (m.durum === 'dolu') {
+                    div.className += "bg-amber-500 text-white shadow-lg";
+                    div.innerHTML = `
+                        <div class="text-center">
+                            <span class="text-2xl font-bold mb-1">${m.ad}</span>
+                            <span class="text-xs opacity-90 block">Hazırlanıyor... 👨‍🍳</span>
+                        </div>
+                        <span class="text-[10px] bg-amber-700 px-2 py-0.5 rounded">Dolu Masa</span>
+                    `;
+                    div.onclick = () => siparisModalAc(m);
+                } else {
+                    div.className += "bg-white border-2 border-indigo-100 text-gray-800 hover:border-indigo-500";
+                    div.innerHTML = `
+                        <div class="text-center">
+                            <span class="text-2xl font-bold mb-1">${m.ad}</span>
+                            <span class="text-xs text-gray-400 block">Boş Masa</span>
+                        </div>
+                        <span class="text-[10px] text-indigo-600 font-semibold bg-indigo-50 px-2 py-1 rounded-lg">+ Sipariş Gir</span>
+                    `;
+                    div.onclick = () => siparisModalAc(m);
+                }
+
+                grid.appendChild(div);
+            });
+        };
+
+        function siparisModalAc(m) {
+            aktifMasaId = m.id;
+            document.getElementById('modalMasaBaslik').innerText = `${m.ad} - Sipariş Gir`;
+            const list = document.getElementById('modalUrunListesi');
+            list.innerHTML = '';
+
+            if(urunler.length === 0) {
+                list.innerHTML = `<p class="text-center text-sm text-gray-500 py-4">Menüde henüz ürün yok. Admin panelinden ürün ekleyin.</p>`;
+            }
+
+            urunler.forEach(u => {
+                const item = document.createElement('div');
+                item.className = "flex justify-between items-center p-3 bg-gray-50 rounded-xl border";
+                item.innerHTML = `
+                    <div>
+                        <h4 class="font-bold text-gray-800">${u.ad}</h4>
+                        <span class="text-xs text-indigo-600 font-semibold">${u.fiyat} TL</span>
+                    </div>
+                    <div class="flex items-center gap-3" data-fiyat="${u.fiyat}" data-urunad="${u.ad}">
+                        <button type="button" class="btn-eksi w-8 h-8 bg-gray-200 rounded-lg font-bold text-gray-700">-</button>
+                        <span class="font-bold text-lg urun-adet">0</span>
+                        <button type="button" class="btn-arti w-8 h-8 bg-indigo-600 text-white rounded-lg font-bold">+</button>
+                    </div>
+                `;
+                item.querySelector('.btn-eksi').onclick = () => adetDegis(item, -1);
+                item.querySelector('.btn-arti').onclick = () => adetDegis(item, 1);
+                list.appendChild(item);
+            });
+            toplamHesapla();
+            document.getElementById('siparisModal').classList.remove('hidden');
+        }
+
+        function adetDegis(itemDiv, miktar) {
+            const adetSpan = itemDiv.querySelector('.urun-adet');
+            let mevcut = parseInt(adetSpan.innerText) + miktar;
+            if (mevcut < 0) mevcut = 0;
+            adetSpan.innerText = mevcut;
+            toplamHesapla();
+        }
+
+        function toplamHesapla() {
+            let toplam = 0;
+            document.querySelectorAll('#modalUrunListesi > div').forEach(div => {
+                const adetTag = div.querySelector('.urun-adet');
+                const fiyatTag = div.querySelector('[data-fiyat]');
+                if(adetTag && fiyatTag) {
+                    const adet = parseInt(adetTag.innerText) || 0;
+                    const fiyat = parseFloat(fiyatTag.getAttribute('data-fiyat')) || 0;
+                    toplam += (adet * fiyat);
+                }
+            });
+            document.getElementById('modalToplamTutar').innerText = toplam.toFixed(2) + ' TL';
+        }
+
+        window.siparisGonder = async function() {
+            let siparisKalemleri = [];
+            document.querySelectorAll('#modalUrunListesi > div').forEach(div => {
+                const adetTag = div.querySelector('.urun-adet');
+                const urunTag = div.querySelector('[data-urunad]');
+                if(adetTag && urunTag) {
+                    const adet = parseInt(adetTag.innerText) || 0;
+                    const ad = urunTag.getAttribute('data-urunad');
+                    if(adet > 0) siparisKalemleri.push(`${adet}x ${ad}`);
+                }
+            });
+
+            if(siparisKalemleri.length === 0) {
+                alert('Lütfen en az 1 ürün seçin!');
+                return;
+            }
+
+            const masa = masalar.find(m => m.id === aktifMasaId);
+            if(!masa) return;
+
+            const { error } = await db.from('siparisler').insert([{
+                isletme_kodu: aktifIsletme,
+                masa_id: masa.id,
+                masa_adi: masa.ad,
+                garson_adi: aktifGarson ? aktifGarson.ad_soyad : 'Garson',
+                icerik: siparisKalemleri.join(', '),
+                durum: 'yeni',
+                hazir: false
+            }]);
+
+            if(error) {
+                alert('Sipariş gönderilirken hata oluştu: ' + error.message);
+                return;
+            }
+
+            await db.from('masalar').update({ durum: 'dolu' }).eq('id', aktifMasaId);
+
+            modalKapat();
+            await verileriYukle();
+            garsonMasalariCiz();
+        };
+
+        window.modalKapat = function() {
+            document.getElementById('siparisModal').classList.add('hidden');
+        };
+
+        window.siparisTeslimEt = async function(siparisId, masaId) {
+            await db.from('siparisler').update({ durum: 'tamamlandi' }).eq('id', siparisId);
+            await db.from('masalar').update({ durum: 'bos' }).eq('id', masaId);
+
+            await verileriYukle();
+            garsonMasalariCiz();
+        };
+
+        function garsonCanliDinleyiciBaslat() {
+            db.channel('garson-masa-channel')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'siparisler', filter: `isletme_kodu=eq.${aktifIsletme}` }, async payload => {
+                await verileriYukle();
+                garsonMasalariCiz();
+                if (payload.eventType === 'UPDATE' && payload.new.hazir) {
+                    zilSesiCal();
+                }
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'masalar', filter: `isletme_kodu=eq.${aktifIsletme}` }, async payload => {
+                await verileriYukle();
+                garsonMasalariCiz();
+            })
+            .subscribe();
+        }
+
+        // --- MUTFAK ---
+        async function mutfakSiparişleriYukle() {
+            const { data } = await db.from('siparisler').select('*').eq('isletme_kodu', aktifIsletme).eq('durum', 'yeni');
+            const grid = document.getElementById('mutfakSiparisGrid');
+            grid.innerHTML = '';
+
+            if(data && data.length > 0) {
+                data.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = "bg-white p-4 rounded-2xl shadow border-l-4 border-amber-500";
+                    div.innerHTML = `
+                        <div class="flex justify-between font-bold text-gray-800 mb-2">
+                            <span>${s.masa_adi}</span>
+                            <span class="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">${s.garson_adi || 'Garson'}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3 border-t border-b py-2">${s.icerik}</p>
+                        <button type="button" onclick="mutfakSiparisHazir(${s.id})" class="w-full bg-emerald-600 text-white py-2 rounded-xl text-sm font-bold hover:bg-emerald-700">Sipariş Hazır ✓</button>
+                    `;
+                    grid.appendChild(div);
+                });
+            } else {
+                grid.innerHTML = `<p class="text-gray-500 text-sm">Aktif yeni sipariş bulunmuyor.</p>`;
+            }
+        }
+
+        function mutfakCanliDinleyiciBaslat() {
+            db.channel('mutfak-siparis-channel')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'siparisler', filter: `isletme_kodu=eq.${aktifIsletme}` }, payload => {
+                mutfakSiparişleriYukle();
+                if(payload.eventType === 'INSERT') zilSesiCal();
+            })
+            .subscribe();
+        }
+
+        window.mutfakSiparisHazir = async function(siparisId) {
+            const { error } = await db.from('siparisler').update({ hazir: true }).eq('id', siparisId);
+            if(error) {
+                alert('Hata: ' + error.message);
+                return;
+            }
+            mutfakSiparişleriYukle();
+        };
+
+        window.zilSesiCal = function() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 587.33;
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.8);
+            } catch(e) {}
+        };
+    </script>
+</body>
+</html>
